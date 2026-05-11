@@ -44,30 +44,33 @@ if menu == "Add Movie":
                 tmdb_rate = details.get('vote_average', 0)
                 genres = ", ".join([g['name'] for g in details.get('genres', [])])
                 
-               # --- SUPER SEARCHER FOR IMDB ---
+            # --- TRIPLE-CHECK IMDB SEARCH ---
                 imdb_rate = "N/A"
                 try:
                     omdb_type = "series" if m_type == "tv" else "movie"
-                    # Clean the title (remove everything after a colon or dash for better matching)
-                    base_title = title.split(':')[0].split('-')[0].strip()
                     
-                    # 1st Try: Original Title + Year
-                    omdb_url = f"http://www.omdbapi.com/?t={title}&y={year}&type={omdb_type}&apikey={OMDB_API_KEY}"
-                    res = requests.get(omdb_url).json()
+                    # 1. Direct Search (Title + Year) - Most Accurate
+                    url1 = f"http://www.omdbapi.com/?t={title}&y={year}&type={omdb_type}&apikey={OMDB_API_KEY}"
+                    r1 = requests.get(url1).json()
                     
-                    if res.get('Response') == 'True':
-                        imdb_rate = res.get('imdbRating', 'N/A')
+                    if r1.get('Response') == 'True':
+                        imdb_rate = r1.get('imdbRating', 'N/A')
                     else:
-                        # 2nd Try: Cleaned Title (No colons/subtitles)
-                        omdb_url_clean = f"http://www.omdbapi.com/?t={base_title}&type={omdb_type}&apikey={OMDB_API_KEY}"
-                        res_clean = requests.get(omdb_url_clean).json()
-                        if res_clean.get('Response') == 'True':
-                            imdb_rate = res_clean.get('imdbRating', 'N/A')
+                        # 2. Relaxed Search (Title only) - Bypasses year mismatch
+                        url2 = f"http://www.omdbapi.com/?t={title}&type={omdb_type}&apikey={OMDB_API_KEY}"
+                        r2 = requests.get(url2).json()
+                        if r2.get('Response') == 'True':
+                            imdb_rate = r2.get('imdbRating', 'N/A')
                         else:
-                            # 3rd Try: Just Title (Broadest search)
-                            omdb_url_broad = f"http://www.omdbapi.com/?t={title}&apikey={OMDB_API_KEY}"
-                            res_broad = requests.get(omdb_url_broad).json()
-                            imdb_rate = res_broad.get('imdbRating', 'N/A')
+                            # 3. Global Search (Finds the closest matching title)
+                            url3 = f"http://www.omdbapi.com/?s={title}&type={omdb_type}&apikey={OMDB_API_KEY}"
+                            r3 = requests.get(url3).json()
+                            if r3.get('Response') == 'True':
+                                # Pick the first search result's ID and get its rating
+                                first_id = r3['Search'][0]['imdbID']
+                                url4 = f"http://www.omdbapi.com/?i={first_id}&apikey={OMDB_API_KEY}"
+                                r4 = requests.get(url4).json()
+                                imdb_rate = r4.get('imdbRating', 'N/A')
                 except:
                     imdb_rate = "N/A"
 
