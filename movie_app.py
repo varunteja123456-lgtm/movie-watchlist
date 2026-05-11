@@ -7,7 +7,7 @@ import time
 TMDB_API_KEY = "1e08f4e7f84d8985db9da59d7d71e8e8"
 FORM_ID = "1FAIpQLSd6QgvqLpdr8lpCRInZ7KJDT3Eiw25RfqAMkzhn1bdUJHmWhw"
 
-# Correct Entry IDs
+# Correct Entry IDs from your pre-filled link
 ENTRY_NAME = "entry.619367303"
 ENTRY_YEAR = "entry.918552721"
 ENTRY_TYPE = "entry.1234985263"
@@ -32,33 +32,28 @@ if menu == "Add Movie":
                 with col1:
                     st.write(f"**{title}** ({year})")
                 with col2:
-                   if st.button("Add to List", key=f"btn_{item['id']}"):
-                    form_url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
-                    payload = {
-                        ENTRY_NAME: title,
-                        ENTRY_YEAR: year,
-                        ENTRY_TYPE: item.get('media_type', 'N/A'),
-                        ENTRY_RATE: item.get('vote_average', 0)
-                    }
-                    
-                    # Enhanced headers to bypass 401/Security blocks
-                    headers = {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/04"
-                    }
-                    
-                    try:
-                        # We use 'allow_redirects=True' to handle Google's internal routing
-                        response = requests.post(form_url, data=payload, headers=headers, allow_redirects=True)
+                    if st.button("Add to List", key=f"btn_{item['id']}"):
+                        form_url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
+                        payload = {
+                            ENTRY_NAME: title,
+                            ENTRY_YEAR: year,
+                            ENTRY_TYPE: item.get('media_type', 'N/A'),
+                            ENTRY_RATE: item.get('vote_average', 0)
+                        }
+                        
+                        headers = {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "User-Agent": "Mozilla/5.0"
+                        }
+                        
+                        response = requests.post(form_url, data=payload, headers=headers)
                         
                         if response.status_code == 200:
                             st.success(f"Successfully added {title}!")
-                        elif response.status_code == 401:
-                            st.error("Google is still asking for a login. Please double-check 'Collect email addresses' is OFF in Form Settings.")
                         else:
-                            st.error(f"Error: {response.status_code}")
-                    except Exception as e:
-                        st.error(f"Technical failure: {e}")
+                            st.error(f"Error: {response.status_code}. Check Form Settings.")
+        except Exception as e:
+            st.error(f"Search failed: {e}")
 
 elif menu == "View My Watchlist":
     st.header("📋 My Entries")
