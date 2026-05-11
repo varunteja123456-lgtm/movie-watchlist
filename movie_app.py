@@ -37,10 +37,11 @@ if menu == "Add Movie":
 elif menu == "View My Watchlist":
     st.header("📋 My Entries")
     try:
-        # This link comes from your Secrets
+        import time
         sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        # Direct read of the published CSV
-        df = pd.read_csv(sheet_url)
+        # This trick forces Google to bypass the cache
+        refresh_url = f"{sheet_url}&t={int(time.time())}"
+        df = pd.read_csv(refresh_url)
         
         if not df.empty:
             st.dataframe(df, use_container_width=True)
