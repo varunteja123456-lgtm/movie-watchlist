@@ -8,7 +8,7 @@ TMDB_API_KEY = "1e08f4e7f84d8985db9da59d7d71e8e8"
 OMDB_API_KEY = "28f7ec5e" 
 FORM_ID = "1FAIpQLSd6QgvqLpdr8lpCRInZ7KJDT3Eiw25RfqAMkzhn1bdUJHmWhw"
 
-# --- GOOGLE FORM ENTRY IDs (Mapped from your link) ---
+# --- GOOGLE FORM ENTRY IDs (Calibrated to your link) ---
 ENTRY_NAME = "entry.619367303"
 ENTRY_YEAR = "entry.918552721"
 ENTRY_TYPE = "entry.1234985263"
@@ -25,6 +25,7 @@ menu = st.sidebar.radio("Menu", ["Add Movie", "View My Watchlist"])
 if menu == "Add Movie":
     query = st.text_input("Search Movie or TV Series:")
     if query:
+        # Step 1: Search TMDB (The big database)
         search_url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={query}"
         try:
             results = requests.get(search_url).json().get('results', [])
@@ -34,7 +35,7 @@ if menu == "Add Movie":
                 if m_type not in ['movie', 'tv']: continue
                 m_id = item['id']
                 
-                # 1. Fetch TMDB Deep Data
+                # --- FETCH DEEP DATA FROM TMDB ---
                 detail_url = f"https://api.themoviedb.org/3/{m_type}/{m_id}?api_key={TMDB_API_KEY}"
                 details = requests.get(detail_url).json()
                 
@@ -43,20 +44,31 @@ if menu == "Add Movie":
                 tmdb_rate = details.get('vote_average', 0)
                 genres = ", ".join([g['name'] for g in details.get('genres', [])])
                 
-                # 2. Fetch IMDB Rating from OMDB
+                # --- FETCH IMDB RATING FROM OMDB (Smart Search) ---
                 imdb_rate = "N/A"
                 try:
-                    omdb_res = requests.get(f"http://www.omdbapi.com/?t={title}&y={year}&apikey={OMDB_API_KEY}").json()
-                    imdb_rate = omdb_res.get('imdbRating', 'N/A')
-                except: pass
+                    omdb_type = "series" if m_type == "tv" else "movie"
+                    # We try Title + Year + Type for max accuracy
+                    omdb_url = f"http://www.omdbapi.com/?t={title}&y={year}&type={omdb_type}&apikey={OMDB_API_KEY}"
+                    omdb_res = requests.get(omdb_url).json()
+                    
+                    if omdb_res.get('Response') == 'True':
+                        imdb_rate = omdb_res.get('imdbRating', 'N/A')
+                    else:
+                        # Backup: Try without Year (sometimes years differ by 1 between sites)
+                        omdb_url_bak = f"http://www.omdbapi.com/?t={title}&type={omdb_type}&apikey={OMDB_API_KEY}"
+                        omdb_res_bak = requests.get(omdb_url_bak).json()
+                        imdb_rate = omdb_res_bak.get('imdbRating', 'N/A')
+                except:
+                    imdb_rate = "N/A"
 
-                # 3. Deep Scan Duration Logic
+                # --- DEEP SCAN DURATION LOGIC ---
                 total_mins = 0
                 if m_type == "tv":
-                    with st.spinner(f"Deep scanning episodes for {title}..."):
+                    with st.spinner(f"Scanning all episodes for {title}..."):
                         for season in details.get('seasons', []):
                             s_num = season.get('season_number')
-                            if s_num == 0: continue 
+                            if s_num == 0: continue # Skip 'Specials'
                             s_url = f"https://api.themoviedb.org/3/tv/{m_id}/season/{s_num}?api_key={TMDB_API_KEY}"
                             s_data = requests.get(s_url).json()
                             for ep in s_data.get('episodes', []):
@@ -64,22 +76,23 @@ if menu == "Add Movie":
                 else:
                     total_mins = details.get('runtime', 0)
 
-                # --- CUSTOM DURATION FORMATTING ---
+                # --- FORMAT DURATION (Human Readable) ---
                 hours = total_mins // 60
                 rem_mins = total_mins % 60
 
                 if hours > 0:
-                    h_text = f"{hours} hour" if hours == 1 else f"{hours} hours"
-                    m_text = f"{rem_mins} minute" if rem_mins == 1 else f"{rem_mins} minutes"
-                    duration = f"{h_text} {m_text}"
+                    h_label = "hour" if hours == 1 else "hours"
+                    m_label = "minute" if rem_mins == 1 else "minutes"
+                    duration_str = f"{hours} {h_label} {rem_mins} {m_label}"
                 else:
-                    duration = f"{total_mins} minute" if total_mins == 1 else f"{total_mins} minutes"
+                    m_label = "minute" if total_mins == 1 else "minutes"
+                    duration_str = f"{total_mins} {m_label}"
 
-                # 4. Display UI
+                # --- UI DISPLAY ---
                 col1, col2 = st.columns([4, 1])
                 with col1:
                     st.write(f"**{title}** ({year})")
-                    st.caption(f"🎭 {genres} | ⭐ TMDB: {tmdb_rate} | ⭐ IMDB: {imdb_rate} | ⏳ {duration}")
+                    st.caption(f"🎭 {genres} | ⭐ TMDB: {tmdb_rate} | ⭐ IMDB: {imdb_rate} | ⏳ {duration_str}")
                 
                 with col2:
                     if st.button("Add to List", key=f"btn_{m_id}"):
@@ -87,21 +100,25 @@ if menu == "Add Movie":
                         payload = {
                             ENTRY_NAME: title, ENTRY_YEAR: year, ENTRY_TYPE: m_type,
                             ENTRY_GENRE: genres, ENTRY_TMDB_RATE: tmdb_rate,
-                            ENTRY_IMDB_RATE: imdb_rate, ENTRY_DURATION: duration
+                            ENTRY_IMDB_RATE: imdb_rate, ENTRY_DURATION: duration_str
                         }
+                        # Send the data to Google Forms
                         r = requests.post(form_url, data=payload)
                         if r.status_code == 200:
                             st.success(f"Added {title}!")
                         else:
-                            st.error(f"Error {r.status_code}. Check Form Privacy Settings.")
+                            st.error(f"Error {r.status_code}. Make sure Form doesn't require login.")
+                            
         except Exception as e:
-            st.error(f"Failed to fetch data: {e}")
+            st.error(f"Something went wrong: {e}")
 
 elif menu == "View My Watchlist":
-    st.header("📋 My Personal Watchlist")
+    st.header("📋 My Watchlist")
     try:
+        # Fetching the CSV from the 'Published' URL in Secrets
         sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        df = pd.read_csv(f"{sheet_url}&cachebust={int(time.time())}")
+        # Force a refresh with a timestamp
+        df = pd.read_csv(f"{sheet_url}&cachebuster={int(time.time())}")
         st.dataframe(df, use_container_width=True)
     except Exception as e:
-        st.error(f"Could not load data. Check if your Sheet is 'Published to Web' as CSV. Error: {e}")
+        st.error(f"Could not load data. Ensure your Sheet is Published to Web as CSV. Error: {e}")
