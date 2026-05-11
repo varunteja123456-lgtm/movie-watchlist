@@ -42,11 +42,11 @@ if menu == "Add Movie":
 elif menu == "View My Watchlist":
     st.header("📋 My Entries")
     try:
-        # Use ttl=0 to ensure we see the most recent form entries immediately
-        df = conn.read(worksheet="Form Responses 1", ttl=0)
+        # Simplified read for the Export link
+        df = conn.read(ttl=0) 
         if not df.empty:
             st.dataframe(df, use_container_width=True)
         else:
-            st.info("The list is empty. Add a movie first!")
+            st.info("The list is empty. Try adding a movie first!")
     except Exception as e:
-        st.error("Connection Error: Please ensure your Google Sheet is shared as 'Anyone with the link can view'.")
+        st.error(f"Technical Error: {e}")
