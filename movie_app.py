@@ -43,7 +43,7 @@ elif menu == "View My Watchlist":
     st.header("📋 My Entries")
     try:
         # Use ttl=0 to ensure we see the most recent form entries immediately
-        df = conn.read(ttl=0) 
+        df = conn.read(worksheet="Form Responses 1", ttl=0)
         if not df.empty:
             st.dataframe(df, use_container_width=True)
         else:
