@@ -1,12 +1,14 @@
 import streamlit as st
 import requests
 import pandas as pd
+import time
 
 # --- CONFIGURATION ---
 TMDB_API_KEY = "1e08f4e7f84d8985db9da59d7d71e8e8"
 FORM_ID = "1FAIpQLSd6QgvqLpdr8lpCRInZ7KJDT3Eiw25RfqAMkzhn1bdUJHmWhw"
-# These are your form entry IDs
-ENTRY_NAME = "entry.619367303" 
+
+# Correct Entry IDs
+ENTRY_NAME = "entry.619367303"
 ENTRY_YEAR = "entry.918552721"
 ENTRY_TYPE = "entry.1234985263"
 ENTRY_RATE = "entry.1608048686"
@@ -20,27 +22,44 @@ if menu == "Add Movie":
     query = st.text_input("Search Movie/Series name:")
     if query:
         url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={query}"
-        results = requests.get(url).json().get('results', [])
-        for item in results[:5]:
-            title = item.get('title') or item.get('name')
-            year = item.get('release_date', item.get('first_air_date', '????'))[:4]
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"**{title}** ({year})")
-            with col2:
-                if st.button("Add to List", key=f"btn_{item['id']}"):
-                    form_url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
-                    payload = {ENTRY_NAME: title, ENTRY_YEAR: year, ENTRY_TYPE: item.get('media_type'), ENTRY_RATE: item.get('vote_average')}
-                    requests.post(form_url, data=payload)
-                    st.success(f"Added {title}! (Wait 5 seconds and refresh Watchlist)")
+        try:
+            results = requests.get(url).json().get('results', [])
+            for item in results[:5]:
+                title = item.get('title') or item.get('name')
+                year = item.get('release_date', item.get('first_air_date', '????'))[:4]
+                
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"**{title}** ({year})")
+                with col2:
+                    if st.button("Add to List", key=f"btn_{item['id']}"):
+                        form_url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
+                        payload = {
+                            ENTRY_NAME: title,
+                            ENTRY_YEAR: year,
+                            ENTRY_TYPE: item.get('media_type', 'N/A'),
+                            ENTRY_RATE: item.get('vote_average', 0)
+                        }
+                        # Forces the correct content type for Google Forms
+                        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+                        
+                        response = requests.post(form_url, data=payload, headers=headers)
+                        
+                        if response.status_code == 200:
+                            st.success(f"Successfully added {title}!")
+                        else:
+                            st.error(f"Failed to add. Status code: {response.status_code}")
+        except Exception as e:
+            st.error(f"Search error: {e}")
 
 elif menu == "View My Watchlist":
     st.header("📋 My Entries")
     try:
-        import time
+        # Pull the published CSV link from Secrets
         sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        # This trick forces Google to bypass the cache
-        refresh_url = f"{sheet_url}&t={int(time.time())}"
+        
+        # Bypass caching to get fresh data
+        refresh_url = f"{sheet_url}&cachebuster={int(time.time())}"
         df = pd.read_csv(refresh_url)
         
         if not df.empty:
