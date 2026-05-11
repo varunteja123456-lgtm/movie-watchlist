@@ -61,9 +61,8 @@ if menu == "Add Movie":
                             st.rerun() # Refresh to update the internal data
             else:
                 st.error("No results found.")
-        except Exception as e:
-            st.error(f"Search failed. Please check your keys or connection.")
-
+      except Exception as e:
+            st.error(f"Error details: {e}")
 elif menu == "View My Watchlist":
     st.header("📋 My Entries")
     if not df.empty:
