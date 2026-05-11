@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
 # --- CONFIGURATION ---
 TMDB_API_KEY = "1e08f4e7f84d8985db9da59d7d71e8e8"
@@ -11,7 +11,6 @@ ENTRY_TYPE = "entry.1234985263"
 ENTRY_RATE = "entry.1608048686"
 
 st.set_page_config(page_title="Movie Tracker", layout="wide")
-conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("🎬 Global Movie Tracker")
 menu = st.sidebar.radio("Menu", ["Add Movie", "View My Watchlist"])
@@ -30,23 +29,20 @@ if menu == "Add Movie":
             with col2:
                 if st.button("Add to List", key=f"btn_{item['id']}"):
                     form_url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
-                    payload = {
-                        ENTRY_NAME: title,
-                        ENTRY_YEAR: year,
-                        ENTRY_TYPE: item.get('media_type', 'N/A'),
-                        ENTRY_RATE: item.get('vote_average', 0)
-                    }
+                    payload = {ENTRY_NAME: title, ENTRY_YEAR: year, ENTRY_TYPE: item.get('media_type'), ENTRY_RATE: item.get('vote_average')}
                     requests.post(form_url, data=payload)
-                    st.success(f"Added {title}! Refresh the watchlist in a few seconds.")
+                    st.success(f"Added {title}!")
 
 elif menu == "View My Watchlist":
     st.header("📋 My Entries")
     try:
-        # Simplified read for the Export link
-        df = conn.read(ttl=0) 
+        # We grab the URL directly from your Secrets
+        sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+        df = pd.read_csv(sheet_url) # Using standard pandas to read the export
+        
         if not df.empty:
             st.dataframe(df, use_container_width=True)
         else:
-            st.info("The list is empty. Try adding a movie first!")
+            st.info("The list is empty.")
     except Exception as e:
-        st.error(f"Technical Error: {e}")
+        st.error(f"Error reading sheet: {e}")
