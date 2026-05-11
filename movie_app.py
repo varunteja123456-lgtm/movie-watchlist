@@ -5,6 +5,7 @@ import pandas as pd
 # --- CONFIGURATION ---
 TMDB_API_KEY = "1e08f4e7f84d8985db9da59d7d71e8e8"
 FORM_ID = "1FAIpQLSd6QgvqLpdr8lpCRInZ7KJDT3Eiw25RfqAMkzhn1bdUJHmWhw"
+# These are your form entry IDs
 ENTRY_NAME = "entry.619367303" 
 ENTRY_YEAR = "entry.918552721"
 ENTRY_TYPE = "entry.1234985263"
@@ -31,18 +32,19 @@ if menu == "Add Movie":
                     form_url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
                     payload = {ENTRY_NAME: title, ENTRY_YEAR: year, ENTRY_TYPE: item.get('media_type'), ENTRY_RATE: item.get('vote_average')}
                     requests.post(form_url, data=payload)
-                    st.success(f"Added {title}!")
+                    st.success(f"Added {title}! (Wait 5 seconds and refresh Watchlist)")
 
 elif menu == "View My Watchlist":
     st.header("📋 My Entries")
     try:
-        # We grab the URL directly from your Secrets
+        # This link comes from your Secrets
         sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        df = pd.read_csv(sheet_url) # Using standard pandas to read the export
+        # Direct read of the published CSV
+        df = pd.read_csv(sheet_url)
         
         if not df.empty:
             st.dataframe(df, use_container_width=True)
         else:
-            st.info("The list is empty.")
+            st.info("The list is empty. Add a movie first!")
     except Exception as e:
-        st.error(f"Error reading sheet: {e}")
+        st.error(f"Error reading watchlist: {e}")
