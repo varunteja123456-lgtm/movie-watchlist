@@ -44,21 +44,30 @@ if menu == "Add Movie":
                 tmdb_rate = details.get('vote_average', 0)
                 genres = ", ".join([g['name'] for g in details.get('genres', [])])
                 
-                # --- FETCH IMDB RATING FROM OMDB (Smart Search) ---
+               # --- SUPER SEARCHER FOR IMDB ---
                 imdb_rate = "N/A"
                 try:
                     omdb_type = "series" if m_type == "tv" else "movie"
-                    # We try Title + Year + Type for max accuracy
-                    omdb_url = f"http://www.omdbapi.com/?t={title}&y={year}&type={omdb_type}&apikey={OMDB_API_KEY}"
-                    omdb_res = requests.get(omdb_url).json()
+                    # Clean the title (remove everything after a colon or dash for better matching)
+                    base_title = title.split(':')[0].split('-')[0].strip()
                     
-                    if omdb_res.get('Response') == 'True':
-                        imdb_rate = omdb_res.get('imdbRating', 'N/A')
+                    # 1st Try: Original Title + Year
+                    omdb_url = f"http://www.omdbapi.com/?t={title}&y={year}&type={omdb_type}&apikey={OMDB_API_KEY}"
+                    res = requests.get(omdb_url).json()
+                    
+                    if res.get('Response') == 'True':
+                        imdb_rate = res.get('imdbRating', 'N/A')
                     else:
-                        # Backup: Try without Year (sometimes years differ by 1 between sites)
-                        omdb_url_bak = f"http://www.omdbapi.com/?t={title}&type={omdb_type}&apikey={OMDB_API_KEY}"
-                        omdb_res_bak = requests.get(omdb_url_bak).json()
-                        imdb_rate = omdb_res_bak.get('imdbRating', 'N/A')
+                        # 2nd Try: Cleaned Title (No colons/subtitles)
+                        omdb_url_clean = f"http://www.omdbapi.com/?t={base_title}&type={omdb_type}&apikey={OMDB_API_KEY}"
+                        res_clean = requests.get(omdb_url_clean).json()
+                        if res_clean.get('Response') == 'True':
+                            imdb_rate = res_clean.get('imdbRating', 'N/A')
+                        else:
+                            # 3rd Try: Just Title (Broadest search)
+                            omdb_url_broad = f"http://www.omdbapi.com/?t={title}&apikey={OMDB_API_KEY}"
+                            res_broad = requests.get(omdb_url_broad).json()
+                            imdb_rate = res_broad.get('imdbRating', 'N/A')
                 except:
                     imdb_rate = "N/A"
 
