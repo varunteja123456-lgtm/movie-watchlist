@@ -119,21 +119,36 @@ elif menu == "View My Watchlist":
         view = st.radio("Display Mode:", ["Visual Gallery", "Data Sheet"], horizontal=True)
         
         if view == "Visual Gallery":
-            cols = st.columns(4)
-            for idx, row in df.reset_index().iterrows():
-                with cols[idx % 4]:
-                    poster_link = row.get('Poster URL', row.get('test2'))
-                    if pd.notna(poster_link): st.image(poster_link)
-                    
-                    st.markdown(f"### {row.get('Name')}")
-                    # DISPLAYING "WEB SERIES" OR "CINEMA" IN GALLERY
-                    st.caption(f"📅 {row.get('Year')} • 🎬 {row.get('Type')}")
-                    st.markdown(f"⭐ **IMDB:** {row.get('IMDB Rating')} | ⏳ {row.get('Duration')}")
-                    
-                    interest = row.get('Interest Level', 'N/A')
-                    color = {"High": "green", "Medium": "orange", "Low": "gray"}.get(interest, "blue")
-                    st.markdown(f":{color}[❤️ {interest} Interest] | ⭐ **Trust:** {row.get('Trust Rating')}")
-                    st.write("---")
+            # FIX FOR MOBILE ORDERING & EVEN ROWS:
+            # We process the dataframe in chunks of 4.
+            # This ensures Row 1 finishes (1,2,3,4) before Row 2 starts.
+            n = 4  # 4 titles per row on desktop
+            list_df = [df[i:i+n] for i in range(0, df.shape[0], n)]
+            
+            for chunk in list_df:
+                cols = st.columns(n)
+                for i, (_, row) in enumerate(chunk.iterrows()):
+                    with cols[i]:
+                        # 1. Poster
+                        poster_link = row.get('Poster URL', row.get('test2'))
+                        if pd.notna(poster_link):
+                            st.image(poster_link, use_column_width=True)
+                        
+                        # 2. Metadata (Inside a fixed-height-simulated area)
+                        # We use a container to keep things tidy
+                        with st.container():
+                            st.markdown(f"**{row.get('Name')}**")
+                            st.caption(f"{row.get('Year')} • {row.get('Type')}")
+                            
+                            # Ratings & Duration
+                            st.write(f"⭐ {row.get('IMDB Rating')} | ⏳ {row.get('Duration')}")
+                            
+                            # Interest Level
+                            interest = row.get('Interest Level', 'N/A')
+                            color = {"High": "green", "Medium": "orange", "Low": "gray"}.get(interest, "blue")
+                            st.markdown(f":{color}[❤️ {interest}] | ⭐ Trust: {row.get('Trust Rating')}")
+                        
+                        st.write("---") # Divider for mobile clarity
         else:
             st.dataframe(df, use_container_width=True)
     except Exception as e:
